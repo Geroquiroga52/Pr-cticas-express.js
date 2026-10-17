@@ -6,12 +6,17 @@
   },
   {
     "id": 2,
-    "name": "Mike Smith",
-    "email": "jenny2025@gmail.com"
+    "name": "Mike smith",
+    "email": "mike2025@gmail.com"
   },
   {
     "id": 3,
     "name": "Gero Quiroga",
     "email": "gero2025@gmail.com"
+  },
+  {
+    "id": 4,
+    "name": "Gael",
+    "email": "gael@porotin.com"
   }
 ]

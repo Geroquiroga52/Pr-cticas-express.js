@@ -1,7 +1,13 @@
 require('dotenv').config();
+const { validarId, validarMail, validarNombre } = require('./validate')
 const { deepStrictEqual } = require('assert');
 const express = require('express');
 const app = express();
+const LoggerMiddleware = require('./middleware/loggers.js')
+const errorHandler = require('./middleware/errorHandler.js')
+
+app.use(errorHandler)
+app.use(LoggerMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -72,15 +78,28 @@ app.get('/users', (req, res) => {
 
 app.post('/users', (req, res) => {
     const newUser = req.body;
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s\-0-9]+$/;
+
     fs.readFile(usersFilePath, 'utf-8', (err, data) => {
         if (err) {
-            return res.status(500).json({error: 'Error con conexión de datos'});
+            return res.status(500).json({ error: 'Error con conexión de datos' });
         }
         const users = JSON.parse(data);
+
+        if (!validarId(users, newUser)) {
+            return res.status(409).json({ error: 'ID ya existente' });
+        }
+        if (!validarNombre(newUser)) {
+            return res.status(400).json({ error: 'El nombre debe tener al menos 3 caracteres' });
+        }
+        if (!validarMail(emailRegex, newUser)) {
+            return res.status(400).json({ error: 'El formato del mail no es correcto' });
+        }
+
         users.push(newUser);
-        fs.writeFile(usersFilePath, JSON.stringify(users, null, 2), (err) =>{
+        fs.writeFile(usersFilePath, JSON.stringify(users, null, 2), (err) => {
             if (err) {
-                return res.status(500).json({error: 'Error al guardar el usuario'});
+                return res.status(500).json({ error: 'Error al guardar el usuario' });
             }
             res.status(201).json(newUser);
         });
@@ -90,12 +109,25 @@ app.post('/users', (req, res) => {
 app.put('/users/:id', (req, res) => {
     const userId = parseInt(req.params.id, 10);
     const updateUser = req.body;
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s\-0-9]+$/;
 
     fs.readFile(usersFilePath, 'utf-8', (err, data) => {
         if (err) {
             return res.status(500).json({ error: 'Error con conexión de datos' });
         }
         let users = JSON.parse(data);
+        const otherUsers = users.filter(user => user.id !== userId);
+
+        if (!validarId(otherUsers, updateUser)) {
+            return res.status(409).json({ error: 'ID ya existente' });
+        }
+        if (!validarNombre(updateUser) && updateUser.name !== undefined) {
+            return res.status(400).json({ error: 'El nombre debe tener al menos 3 caracteres' });
+        }
+        if (!validarMail(emailRegex, updateUser) && updateUser.email !== undefined) {
+            return res.status(400).json({ error: 'El formato del mail no es correcto' });
+        }
+
         users = users.map(user =>
             user.id === userId ? {...user, ...updateUser} : user
         );
@@ -103,7 +135,7 @@ app.put('/users/:id', (req, res) => {
             if (err) {
                 return res.status(500).json({ error: 'Error al cambiar el usuario' });
             }
-            res.json(updateUser);
+            res.json(users.find(u => u.id === userId));
         });
     });
 });
@@ -115,15 +147,22 @@ app.delete('/users/:id', (req, res) => {
             return res.status(500).json({ error: 'Error con la conexión de datos' });
         }
         let users = JSON.parse(data);
+        if(!users.some(user => user.id === userId)) {
+            return res.status(404).json({ error: `ID ${userId} no existe` });
+        }
         users = users.filter(user => user.id !== userId);
-        fs.writeFile(usersFilePath, JSON.stringify(users, null, 2), (err) => {
+            fs.writeFile(usersFilePath, JSON.stringify(users, null, 2), (err) => {
             if (err) {
                 return res.status(500).json({ error: 'Error al eliminar usuario' });
             }
-            res.status(204).send();
+            res.status(200).json(`Usuario ${userId} eliminado`);
         });
     });
 });
+
+app.get('/error', (req, res, next) => {
+    next(new Error('Error intencional'));
+})
 
 app.listen(PORT, () => {
     console.log('Nuestra app esta funcionando en el puerto:', PORT);
