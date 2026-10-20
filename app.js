@@ -3,8 +3,19 @@ const { validarId, validarMail, validarNombre } = require('./validate')
 const { deepStrictEqual } = require('assert');
 const express = require('express');
 const app = express();
-const LoggerMiddleware = require('./middleware/loggers.js')
-const errorHandler = require('./middleware/errorHandler.js')
+const LoggerMiddleware = require('./middleware/loggers.js');
+const errorHandler = require('./middleware/errorHandler.js');
+
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const authenticateToken = require('./middleware/auth.js');
+
+// ✅ v7
+const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
+const prisma = new PrismaClient({ adapter }) 
 
 app.use(errorHandler)
 app.use(LoggerMiddleware);
@@ -163,6 +174,51 @@ app.delete('/users/:id', (req, res) => {
 app.get('/error', (req, res, next) => {
     next(new Error('Error intencional'));
 })
+
+app.get('/db-users', async (req, res) => {
+    try{
+        const users = await prisma.user.findMany();
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ error: 'Error al comunicarse con la base de datos' });
+    }
+});
+
+app.get('/protected-route', authenticateToken, (req, res) => {
+    res.send('Esta ruta esta protegida');
+});
+
+app.post('/register', async (req, res) => {
+    const { email, password, name } = req.body;
+    const hashPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await prisma.user.create ({
+        data: {
+            email,
+            password: hashPassword,
+            name,
+            role: 'USER'
+        }
+    })
+    res.status(201).json({ message: 'User registered successfully' });
+});
+
+app.post('/login', async (req, res) => {
+    const {email, password} = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user)
+        res.status(400).json({ error: 'Invalid email or password' });
+
+    const validPassword = await bcrypt.compare(password, user.password);
+
+    if(!validPassword) res.status(400).json({ error: 'Invalid email or password' });
+
+    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '4h' });
+
+    res.json({ token });
+});
+
 
 app.listen(PORT, () => {
     console.log('Nuestra app esta funcionando en el puerto:', PORT);
