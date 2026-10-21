@@ -1,14 +1,14 @@
 require('dotenv').config();
-const { validarId, validarMail, validarNombre } = require('./validate')
+const { validarId, validarMail, validarNombre } = require('./src/utils/validate.js')
 const { deepStrictEqual } = require('assert');
 const express = require('express');
 const app = express();
-const LoggerMiddleware = require('./middleware/loggers.js');
-const errorHandler = require('./middleware/errorHandler.js');
+const LoggerMiddleware = require('./src/middleware/loggers.js');
+const errorHandler = require('./src/middleware/errorHandler.js');
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const authenticateToken = require('./middleware/auth.js');
+const authenticateToken = require('./src/middleware/auth.js');
 
 // ✅ v7
 const { PrismaClient } = require('@prisma/client');
