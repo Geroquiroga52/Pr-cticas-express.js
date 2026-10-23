@@ -1,7 +1,13 @@
 // prisma/seed.js
 
+require('dotenv/config'); 
+
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { PrismaPg } = require('@prisma/adapter-pg');
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
+// prisma/seed.js
 
 async function main() {
   // Crear usuarios
